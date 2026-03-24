@@ -22,38 +22,41 @@ fi
 echo "==> Deploying backend to Railway..."
 cd "$REPO_ROOT/backend"
 
-# Link to a new Railway project (creates it if not linked yet)
+# Create and link project
 railway init --name "instagram-defilter" 2>/dev/null || true
+
+# Deploy (creates a new service automatically)
+railway up --detach
+
+# Link the newly created service so we can set variables
+SERVICE_ID=$(railway status --json 2>/dev/null | grep -o '"serviceId":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+if [[ -n "$SERVICE_ID" ]]; then
+  railway service link "$SERVICE_ID" 2>/dev/null || true
+fi
 
 # Set the Anthropic API key
 railway variables set ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"
 
-# Deploy (Railway reads railway.toml for build/start config)
-railway up --detach
-
-# Get the backend URL
-RAILWAY_URL=$(railway domain 2>/dev/null || echo "")
+# Generate a public domain
+RAILWAY_URL=$(railway domain 2>/dev/null | grep -o 'https://[^ ]*' | head -1 || echo "")
 if [[ -z "$RAILWAY_URL" ]]; then
   echo "  Could not auto-detect Railway URL. Check your Railway dashboard."
-  echo "  Set it manually: VITE_API_URL=https://your-app.up.railway.app"
   RAILWAY_URL="https://YOUR_RAILWAY_URL.up.railway.app"
 fi
-echo "  Backend URL: https://$RAILWAY_URL"
+echo "  Backend URL: $RAILWAY_URL"
 
 echo ""
 echo "==> Deploying frontend to Vercel..."
 cd "$REPO_ROOT/frontend"
 
-# Install deps first (needed for build)
 npm install --silent
 
-# Deploy with env var pointing to Railway backend
-VITE_API_URL="https://$RAILWAY_URL" vercel --prod \
-  --build-env VITE_API_URL="https://$RAILWAY_URL" \
-  --env VITE_API_URL="https://$RAILWAY_URL" \
+vercel --prod \
+  --build-env VITE_API_URL="$RAILWAY_URL" \
+  --env VITE_API_URL="$RAILWAY_URL" \
   --yes
 
 echo ""
 echo "==> Done!"
-echo "  Backend: https://$RAILWAY_URL"
+echo "  Backend:  $RAILWAY_URL"
 echo "  Frontend: check Vercel output above for the URL"
