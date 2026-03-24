@@ -7,15 +7,22 @@
 #   vercel login
 #
 # Usage:
-#   ANTHROPIC_API_KEY=sk-ant-... bash deploy.sh
+#   bash deploy.sh
+#   (reads ANTHROPIC_API_KEY from ~/.deploy-secrets automatically)
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SECRETS_FILE="$HOME/.deploy-secrets"
+
+# Load secrets file if it exists
+if [[ -f "$SECRETS_FILE" ]]; then
+  set -a; source "$SECRETS_FILE"; set +a
+fi
 
 if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
   echo "Error: ANTHROPIC_API_KEY is not set."
-  echo "Usage: ANTHROPIC_API_KEY=your_key bash deploy.sh"
+  echo "Add it to $SECRETS_FILE: ANTHROPIC_API_KEY=your_key"
   exit 1
 fi
 
